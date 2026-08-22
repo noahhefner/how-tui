@@ -7,7 +7,7 @@ import sys
 import questionary
 from rich.console import Console
 
-from how_tui.config import ConfigManager
+from how_tui.config import ConfigError, ConfigManager
 from how_tui.providers import PROVIDERS, LLMProvider
 
 PROMPT_TEMPLATE = """
@@ -18,7 +18,9 @@ commands that can be executed in their terminal.
 
 Rules:
 - Only generate commands that will run on the users operating system.
-- To not invent commands or assume software is instaled unless neccessary.
+- To not invent commands
+- Do not assume software is instaled unless it is very commonly used and widely
+  available for most operating systems.
 - Return several command options when multiple reasonable approaches exist.
 - If the operating system is unknown, assume Debian Linux.
 - If the shell is unknown, assume Bash.
@@ -39,24 +41,26 @@ logger = logging.getLogger(__name__)
 def list_supported_providers(configurator: ConfigManager):
     """List all LLM providers that are supported by how-tui."""
 
+    providers = configurator.get_all_supported_providers()
+    if len(providers) == 0:
+        print("No supported LLM providers.")
+        return
+
     print("Supported LLM providers:")
-    for provider_name in configurator.provider_index:
+    for provider_name in providers:
         print(f"  - {provider_name}")
 
 
 def list_configured_providers(configurator: ConfigManager):
     """List all LLM providers that the user has configured."""
 
-    assert configurator.config is not None
-    assert configurator.config.providers is not None
-
-    # TODO: Make this some sort of accessor
-    if len(configurator.config.providers) == 0:
+    providers = configurator.get_all_configured_providers()
+    if len(providers) == 0:
         print("No LLM providers configured. Run 'how --setup' to configure one.")
         return
 
     print("Configured LLM providers:")
-    for provider_name in configurator.config.providers:
+    for provider_name in providers:
         print(f"  - {provider_name}")
 
 
@@ -67,10 +71,7 @@ def remove_provider(configurator: ConfigManager):
     auth credentials.
     """
 
-    assert configurator.config is not None
-    assert configurator.config.providers is not None
-
-    provider_names = list(configurator.config.providers.keys())
+    provider_names = configurator.get_all_configured_providers()
     if len(provider_names) == 0:
         print("No providers configured. Run 'how --setup' to configure a provider.")
         return
@@ -81,7 +82,8 @@ def remove_provider(configurator: ConfigManager):
     ).ask()
 
     # Get provider class
-    provider = configurator.provider_index[selected_name]
+    provider = configurator.get_provider_by_name(selected_name)
+    assert provider is not None
 
     # Unauthenticate with the LLM provider
     provider.unauthenticate()
@@ -93,13 +95,12 @@ def remove_provider(configurator: ConfigManager):
 def set_default_provider(configurator: ConfigManager):
     """Set a default LLM provider."""
 
-    assert configurator.config is not None
-
-    if configurator.config.providers is None:
+    if not configurator.any_providers_configured():
         print("No providers configured. Run 'how --setup' to configure a provider.")
         return
 
-    provider_names = list(configurator.config.providers.keys())
+    provider_names = configurator.get_all_configured_providers()
+    assert len(provider_names) != 0
 
     # Prompt user to select a default provider
     selected_name = questionary.select(
@@ -114,9 +115,10 @@ def add_provider(configurator: ConfigManager):
     """Configure an LLM provider."""
 
     # List of all supported provider names
-    provider_names = [
-        provider_name for provider_name, _ in configurator.provider_index.items()
-    ]
+    provider_names = configurator.get_all_supported_providers()
+    if len(provider_names) == 0:
+        print("No supported providers. Tell the developers to add some.")
+        return
 
     # Prompt user to select an LLM provider
     selected_name = questionary.select(
@@ -124,7 +126,7 @@ def add_provider(configurator: ConfigManager):
     ).ask()
 
     # Get provider class
-    provider = configurator.provider_index[selected_name]
+    provider = configurator.get_provider_by_name(selected_name)
     assert provider is not None
 
     # Authenticate with the LLM provider
@@ -148,6 +150,7 @@ def print_commands(commands: list[str]):
 
 def main():
 
+    console = Console()
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -218,43 +221,49 @@ def main():
     logger.debug(f"Detected shell: {shell}")
 
     # Create config manager
-    configurator = ConfigManager(PROVIDERS)
-    configurator.initialize()
+    try:
+        configurator = ConfigManager(PROVIDERS)
+    except ConfigError as e:
+        logger.debug(e)
+        console.print(
+            "[red]An error occurred while reading the config file. Run how with the --debug flag for more info.[/red]"
+        )
+        sys.exit(1)
 
     # List all supported LLM providers
     if args.list_supported_providers:
         list_supported_providers(configurator)
-        sys.exit(0)
+        return
 
     # List users configured LLM providers
     if args.list_configured_providers:
         list_configured_providers(configurator)
-        sys.exit(0)
+        return
 
     # Remove a configured LLM provider
     if args.remove_provider:
         remove_provider(configurator)
-        sys.exit(0)
+        return
 
     # Set a default provider
     if args.set_default_provider:
         set_default_provider(configurator)
-        sys.exit(0)
+        return
 
     # Add an LLM provider
     if args.add_provider:
         add_provider(configurator)
-        sys.exit(0)
+        return
 
     # No prompt
     if args.prompt is None or args.prompt.strip() == "":
         parser.print_help()
-        sys.exit(0)
+        return
 
     # Check that at least one provider is configured
     if not configurator.any_providers_configured():
         print("No LLM providers configured. Run 'how --setup' to configure one.")
-        sys.exit(0)
+        return
 
     # Get provider
     provider: type[LLMProvider] | None = None
@@ -268,7 +277,15 @@ def main():
             sys.exit(1)
         provider = configurator.get_provider_by_name(user_specified_provider)
     else:
-        provider = configurator.get_default_provider_class()
+        try:
+            provider = configurator.get_default_provider_class()
+        except ConfigError as e:
+            logger.debug(e)
+            console.print(
+                "[red]An error occurred while selecting the LLM provider. Run how with the --debug flag for more info.[/red]"
+            )
+            sys.exit(1)
+
     assert provider is not None
     logger.debug(f"Using provider class: {provider.__name__}")
 
@@ -281,7 +298,14 @@ def main():
     if user_specified_model is not None:
         model = user_specified_model
     else:
-        model = configurator.get_default_provider_model()
+        try:
+            model = configurator.get_default_provider_model()
+        except ConfigError as e:
+            logger.debug(e)
+            console.print(
+                "[red]An error occurred while selecting a model. Run how with the --debug flag for more info.[/red]"
+            )
+            sys.exit(1)
     assert model is not None
     logger.debug(f"Using model: {model}")
 
@@ -293,7 +317,6 @@ def main():
     )
 
     # Get commands from the AI
-    console = Console()
     try:
         with console.status("[bold green]Working...[/bold green]", spinner="dots"):
             response = provider.generate_commands(prompt_with_context, model)

@@ -1,5 +1,4 @@
 import logging
-import sys
 
 from platformdirs import PlatformDirs
 from pydantic import ValidationError
@@ -10,38 +9,60 @@ from how_tui.providers.base import LLMProvider
 logger = logging.getLogger(__name__)
 
 
+class ConfigError(Exception):
+    """Exception raised when an invalid state in the config file is detected."""
+
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
+
+
 class ConfigManager:
     def __init__(
         self,
         provider_index: dict[str, type[LLMProvider]],
         config_filename: str = "config.json",
     ):
+        """Create a new config manager object.
+
+        This init function checks for an existing configuration file and loads
+        the data from it if one is found.
+
+        If there is no configuration file, an empty one is created.
+
+        Raises:
+            ConfigError: If the config file is malformed.
+        """
 
         self.config_filename = config_filename
-        self.config: ConfigFile | None = None
         self.platform_dirs = PlatformDirs("how-tui", "NoahHefner")
         self.provider_index = provider_index
+        self.config = ConfigFile()  # In-memory config file data
 
-    def initialize(self):
-        """Create or load configuration file."""
-
-        # TODO: Consider putting all this in the __init__ function so that
-        # we dont need asserts all over the place.
-
+        # Path to config file
         config_dir = self.platform_dirs.user_config_path
         config_dir.mkdir(parents=True, exist_ok=True)
         config_file = config_dir / self.config_filename
 
+        # Config file does not exist
         if not config_file.exists():
             logger.debug("Config file does not exist. Creating one now...")
-            self._create_config_file(config_file)
-            return
+            config_file.write_text(self.config.model_dump_json(indent=2))
 
+        # Config file is not a file
         if not config_file.is_file():
-            print("Config file is not a file.", file=sys.stderr)
-            sys.exit(1)
+            raise ConfigError("Config file is not a file.")
 
-        self._load_config_file(config_file)
+        # Attempt to load existing config file
+        try:
+            self.config = ConfigFile.model_validate_json(config_file.read_text())
+        except ValidationError as e:
+            raise ConfigError(
+                f"Validation error occurred while reading config file: {e}"
+            )
+
+        # Save reference to config file
+        self.config_file = config_file
 
     def add_provider(
         self,
@@ -49,76 +70,31 @@ class ConfigManager:
         model: str,
         default: bool = False,
     ) -> None:
-        """Write LLM provider data to config file.
-
-        Assumptions:
-            - Configuration file exists.
-            - Configuration file data has been read into this class via initialize function.
-        """
-
-        assert self.config is not None
+        """Write LLM provider data to config file."""
 
         provider_config = ProviderConfig(
             model=model,
         )
 
         # Update internal state
-        if self.config.providers is None:
-            self.config.providers = {
-                provider_name: provider_config,
-            }
-        else:
-            self.config.providers[provider_name] = provider_config
+        self.config.providers[provider_name] = provider_config
+
+        # Set as default, if neccessary
         if default or self.config.default_provider is None:
+            logger.debug(f"Setting {provider_name} as default...")
             self.config.default_provider = provider_name
 
+        # Write in-memory config data to disk
         self._write_config()
-
-        print(f"Added provider: {provider_name}")
-
-    def set_default_provider(
-        self,
-        provider_name: str,
-    ) -> None:
-        """Set a provider as the default.
-
-        Assumptions:
-            - Configuration file exists.
-            - Configuration file data has been read into this class via initialize function.
-        """
-
-        assert self.config is not None
-        assert self.config.providers is not None
-        assert self.config.providers[provider_name] is not None
-
-        # Update internal state
-        self.config.default_provider = provider_name
-
-        # Write to disk
-        self._write_config()
-
-        print(f"Set {provider_name} as default provider.")
 
     def remove_provider(
         self,
         provider_name: str,
     ) -> None:
-        """Remove an LLM provider from the config file.
-
-        Assumptions:
-            - Configuration file exists.
-            - Configuration file data has been read into this class via initialize function.
-        """
-
-        assert self.config is not None
-        assert self.config.providers is not None
-        assert self.config.providers[provider_name] is not None
+        """Remove an LLM provider from the config file."""
 
         # Remove provider from in-memory config
         del self.config.providers[provider_name]
-
-        # Removal confirmation message
-        print(f"Removed provider: {provider_name}")
 
         # If another provider is configured as the default, we do not need to set
         # a new default. Write out new config to disk and return.
@@ -130,32 +106,67 @@ class ConfigManager:
         # the default and send a warning message.
         if len(self.config.providers) > 0:
             new_default = next(iter(self.config.providers))
+            logger.debug(f"Setting {new_default} as default provider...")
             self.config.default_provider = new_default
-            print(f"New default LLM provider: {new_default}")
         else:
             self.config.default_provider = None
-            print("No remaining LLM providers configured.")
 
         # Write config to disk
         self._write_config()
 
-    def _write_config(self):
-        """Write in-memory config to config file on disk."""
+    def set_default_provider(
+        self,
+        provider_name: str,
+    ) -> None:
+        """Set a provider as the default."""
 
-        config_dir = self.platform_dirs.user_config_path
-        config_file = config_dir / self.config_filename
+        if not provider_name in self.provider_index:
+            logger.debug("Invalid provider name.")
+            return
 
-        assert self.config is not None
-        assert config_file.exists()
-        assert config_file.is_file()
+        if not provider_name in self.config.providers:
+            logger.debug("Provider not configured.")
+            return
 
-        config_file.write_text(self.config.model_dump_json(indent=2))
+        # Update internal state
+        self.config.default_provider = provider_name
+
+        # Write to disk
+        self._write_config()
+
+    def get_all_configured_providers(self) -> list[str]:
+        """Lists all configured providers by name."""
+
+        return list(self.config.providers.keys())
+
+    def get_all_supported_providers(self) -> list[str]:
+        """Lists all supported providers by name."""
+
+        return list(self.provider_index.keys())
+
+    def provider_is_configured(self, provider_name: str) -> bool:
+        """True if a provider is configured, False otherwise."""
+
+        return provider_name in self.config.providers
+
+    def provider_is_supported(self, provider_name: str) -> bool:
+        """True if a provider is supported, False otherwise."""
+
+        return provider_name in self.provider_index
+
+    def get_provider_by_name(self, provider_name: str) -> type[LLMProvider] | None:
+        """Get provider class by name.
+
+        Assumptions:
+            - The provider is supported and the provider is configured. Exits otherwise.
+        """
+
+        if provider_name in self.provider_index:
+            return self.provider_index[provider_name]
+        return None
 
     def any_providers_configured(self) -> bool:
         """Returns True if at least one provider is configured. False otherwise."""
-
-        assert self.config is not None
-        assert self.config.providers is not None
 
         return (
             self.config.default_provider is not None and len(self.config.providers) > 0
@@ -164,81 +175,42 @@ class ConfigManager:
     def get_default_provider_class(self) -> type[LLMProvider] | None:
         """Get the default provider class.
 
-        Assumptions:
-            - A default provider is configured. Exits otherwise.
+        Raises:
+            ConfigError: If the default provider does not match any configured
+            provider name.
         """
 
-        assert self.config is not None
-        assert self.config.default_provider is not None
+        if self.config.default_provider is None:
+            return None
 
         default_provider_class = self.provider_index[self.config.default_provider]
         if default_provider_class is None:
-            logger.debug(
-                "Config.get_default_provider_class called when no default provider is configured.",
+            raise ConfigError(
+                "Default provider does not match any configured provider name."
             )
-            sys.exit(1)
 
         return default_provider_class
 
-    def get_provider_by_name(self, provider_name: str) -> type[LLMProvider]:
-        """Get provider class by name.
+    def get_default_provider_model(self) -> str | None:
+        """Get the model for the default provider.
 
-        Assumptions:
-            - The provider is supported and the provider is configured. Exits otherwise.
+        Raises:
+            ConfigError: If the default provider does not match any configured
+            provider name.
         """
 
-        assert self.config is not None
-        assert self.config.providers is not None
-        assert provider_name in self.config.providers
-        assert provider_name in self.provider_index
-        return self.provider_index[provider_name]
-
-    def provider_is_supported(self, provider_name: str) -> bool:
-
-        return provider_name in self.provider_index
-
-    def provider_is_configured(self, provider_name: str) -> bool:
-
-        assert self.config is not None
-        assert self.config.providers is not None
-
-        return provider_name in self.config.providers
-
-    def get_default_provider_model(self) -> str:
-
-        assert self.config is not None
-        assert self.config.default_provider is not None
-        assert self.config.providers is not None
+        if self.config.default_provider is None:
+            return None
 
         default_provider = self.config.providers[self.config.default_provider]
-        assert default_provider is not None
+        if default_provider is None:
+            raise ConfigError(
+                "Default provider does not match any configured provider name."
+            )
 
-        model = default_provider.model
-        if model is None:
-            print("Model not configured for default LLM provider.", file=sys.stderr)
-            sys.exit(1)
+        return default_provider.model
 
-        return model
+    def _write_config(self):
+        """Write in-memory config to config file on disk."""
 
-    def _create_config_file(self, config_file) -> None:
-        """Create a new, empty config file."""
-
-        self.config = ConfigFile()
-        config_file.write_text(self.config.model_dump_json(indent=2))
-
-    def _load_config_file(self, config_file) -> None:
-        """Read config file data into this class instance.
-
-        Assumptions:
-            - Configuration file exists.
-        """
-
-        assert config_file.exists()
-        assert config_file.is_file()
-
-        try:
-            self.config = ConfigFile.model_validate_json(config_file.read_text())
-        except ValidationError as e:
-            logger.debug(f"Validation error occurred while reading config file: {e}")
-            print("Malformed configuration file.", file=sys.stderr)
-            sys.exit(1)
+        self.config_file.write_text(self.config.model_dump_json(indent=2))
