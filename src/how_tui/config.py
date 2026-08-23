@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 from platformdirs import PlatformDirs
 from pydantic import ValidationError
@@ -7,7 +8,6 @@ from how_tui.models.config_file import ConfigFile, ProviderConfig
 from how_tui.providers.base import LLMProvider
 
 logger = logging.getLogger(__name__)
-
 
 class ConfigError(Exception):
     """Exception raised when an invalid state in the config file is detected."""
@@ -21,7 +21,7 @@ class ConfigManager:
     def __init__(
         self,
         provider_index: dict[str, type[LLMProvider]],
-        config_filename: str = "config.json",
+        config_file_path: Path | None = None,
     ):
         """Create a new config manager object.
 
@@ -34,26 +34,30 @@ class ConfigManager:
             ConfigError: If the config file is malformed.
         """
 
-        self.config_filename = config_filename
-        self.platform_dirs = PlatformDirs("how-tui", "NoahHefner")
         self.provider_index = provider_index
         self.config = ConfigFile()  # In-memory config file data
+        
+        config_file: Path | None = None
+        if config_file_path is not None:
+            # User-specified config file
+            if not config_file_path.exists():
+                raise ConfigError("User-provided config file does not exist.")
+            if not config_file_path.is_file():
+                raise ConfigError("User-provided config file is not a file.")
+            config_file = config_file_path
+        else:
+            # Default config file
+            config_dir = PlatformDirs("how-tui", "NoahHefner").user_config_path
+            config_dir.mkdir(parents=True, exist_ok=True)
+            config_file = config_dir / "config.json"
+            if not config_file.exists():
+                logger.debug("Config file does not exist. Creating one now...")
+                config_file.write_text(self.config.model_dump_json(indent=2))
+            if not config_file.is_file():
+                raise ConfigError("Config file is not a file.")
+        assert config_file is not None
 
-        # Path to config file
-        config_dir = self.platform_dirs.user_config_path
-        config_dir.mkdir(parents=True, exist_ok=True)
-        config_file = config_dir / self.config_filename
-
-        # Config file does not exist
-        if not config_file.exists():
-            logger.debug("Config file does not exist. Creating one now...")
-            config_file.write_text(self.config.model_dump_json(indent=2))
-
-        # Config file is not a file
-        if not config_file.is_file():
-            raise ConfigError("Config file is not a file.")
-
-        # Attempt to load existing config file
+        # Load the config file
         try:
             self.config = ConfigFile.model_validate_json(config_file.read_text())
         except ValidationError as e:

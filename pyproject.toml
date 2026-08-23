@@ -26,6 +26,12 @@ how = "how_tui.cli:main"
 
 [dependency-groups]
 dev = [
+    "pytest>=9.1.1",
     "ruff>=0.16.3",
     "ty>=0.0.72",
+]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning:google.genai",
 ]
