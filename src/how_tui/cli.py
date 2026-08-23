@@ -121,6 +121,42 @@ def set_default_provider(configurator: ConfigManager, console: Console):
     configurator.set_default_provider(selected_name)
 
 
+def set_model(configurator: ConfigManager, console: Console):
+    """Set a default model."""
+
+    provider_names = configurator.get_all_configured_providers()
+    if len(provider_names) == 0:
+        console.print(
+            "No providers configured.",
+            style="red",
+        )
+        return
+
+    # Prompt user to select an LLM provider to remove
+    selected_name = questionary.select(
+        "Select a provider:", choices=provider_names
+    ).ask()
+
+    # Get provider class
+    provider = configurator.get_provider_by_name(selected_name)
+    assert provider is not None
+
+    try:
+        models = provider.get_models()
+    except FetchModelsError as e:
+        logger.debug(f"Error while fetching models: {e}")
+        console.print(
+            "An error occured while fetching provider models.",
+            style="red",
+        )
+        sys.exit(1)
+
+    selected_model = questionary.select("Select a model:", choices=models).ask()
+
+    # Write provider to config file
+    configurator.add_provider(selected_name, selected_model)
+
+
 def add_provider(configurator: ConfigManager, console: Console):
     """Configure an LLM provider."""
 
@@ -207,6 +243,12 @@ def main():
     )
 
     parser.add_argument(
+        "--set-model",
+        action="store_true",
+        help="Set a default model for a provider",
+    )
+
+    parser.add_argument(
         "--debug",
         action="store_true",
         help="Enable debug level logging",
@@ -214,12 +256,12 @@ def main():
 
     parser.add_argument(
         "--provider",
-        help="Specify which LLM provider to use",
+        help="Specify an LLM provider",
     )
 
     parser.add_argument(
         "--model",
-        help="Specify which model to use",
+        help="Specify a model",
     )
 
     parser.add_argument(
@@ -271,6 +313,11 @@ def main():
     # Set a default provider
     if args.set_default_provider:
         set_default_provider(configurator, console)
+        return
+
+    # Set a default model
+    if args.set_model:
+        set_model(configurator, console)
         return
 
     # Add an LLM provider

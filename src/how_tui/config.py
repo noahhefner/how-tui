@@ -177,7 +177,7 @@ class ConfigManager:
 
         Raises:
             ConfigError: If the default provider does not match any configured
-            provider name.
+                provider name.
         """
 
         if self.config.default_provider is None:
@@ -196,7 +196,7 @@ class ConfigManager:
 
         Raises:
             ConfigError: If the default provider does not match any configured
-            provider name.
+                provider name.
         """
 
         if self.config.default_provider is None:

@@ -29,7 +29,8 @@ uv tool install how-tui
 ```sh
 $ how
 usage: how [-h] [--list-supported-providers] [--list-configured-providers] [--add-provider]
-           [--remove-provider] [--set-default-provider] [--debug] [--provider PROVIDER] [--model MODEL]
+           [--remove-provider] [--set-default-provider] [--set-model] [--debug] [--provider PROVIDER]
+           [--model MODEL]
            [prompt]
 
 positional arguments:
@@ -45,9 +46,10 @@ options:
   --remove-provider     Remove an LLM provider
   --set-default-provider
                         Set a default LLM provider
+  --set-model           Set a default model for a provider
   --debug               Enable debug level logging
-  --provider PROVIDER   Specify which LLM provider to use
-  --model MODEL         Specify which model to use
+  --provider PROVIDER   Specify an LLM provider
+  --model MODEL         Specify a model
 ```
 
 ### First-Time Setup
@@ -69,8 +71,6 @@ how "rename multiple files at once"
 
 ## TODO List
 
-- Add flag to clear credentials for a provider
-- Add flag to change model for a provider
 - Shell-aware syntax highlighting in the displayed commands.
 - Add a comprehensive test suite covering CLI behavior, provider integration, config management, and command parsing.
 - Add support for more LLM providers.
