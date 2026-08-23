@@ -9,6 +9,7 @@ from rich.console import Console
 
 from how_tui.config import ConfigError, ConfigManager
 from how_tui.providers import PROVIDERS, LLMProvider
+from how_tui.providers.base import FetchModelsError, GenerateCommandsError
 
 PROMPT_TEMPLATE = """
 You are a terminal command assistant.
@@ -38,12 +39,12 @@ Return the appropriate commands.
 logger = logging.getLogger(__name__)
 
 
-def list_supported_providers(configurator: ConfigManager):
+def list_supported_providers(configurator: ConfigManager, console: Console):
     """List all LLM providers that are supported by how-tui."""
 
     providers = configurator.get_all_supported_providers()
     if len(providers) == 0:
-        print("No supported LLM providers.")
+        console.print("No supported LLM providers.", style="red")
         return
 
     print("Supported LLM providers:")
@@ -51,12 +52,15 @@ def list_supported_providers(configurator: ConfigManager):
         print(f"  - {provider_name}")
 
 
-def list_configured_providers(configurator: ConfigManager):
+def list_configured_providers(configurator: ConfigManager, console: Console):
     """List all LLM providers that the user has configured."""
 
     providers = configurator.get_all_configured_providers()
     if len(providers) == 0:
-        print("No LLM providers configured. Run 'how --setup' to configure one.")
+        console.print(
+            "No LLM providers configured. Run 'how --setup' to configure one.",
+            style="red",
+        )
         return
 
     print("Configured LLM providers:")
@@ -64,7 +68,7 @@ def list_configured_providers(configurator: ConfigManager):
         print(f"  - {provider_name}")
 
 
-def remove_provider(configurator: ConfigManager):
+def remove_provider(configurator: ConfigManager, console: Console):
     """Remove an LLM provider.
 
     Removes the provider from the configuration file and erases locally stored
@@ -73,7 +77,10 @@ def remove_provider(configurator: ConfigManager):
 
     provider_names = configurator.get_all_configured_providers()
     if len(provider_names) == 0:
-        print("No providers configured. Run 'how --setup' to configure a provider.")
+        console.print(
+            "No providers configured. Run 'how --setup' to configure a provider.",
+            style="red",
+        )
         return
 
     # Prompt user to select an LLM provider to remove
@@ -92,11 +99,14 @@ def remove_provider(configurator: ConfigManager):
     configurator.remove_provider(selected_name)
 
 
-def set_default_provider(configurator: ConfigManager):
+def set_default_provider(configurator: ConfigManager, console: Console):
     """Set a default LLM provider."""
 
     if not configurator.any_providers_configured():
-        print("No providers configured. Run 'how --setup' to configure a provider.")
+        console.print(
+            "No providers configured. Run 'how --setup' to configure a provider.",
+            style="red",
+        )
         return
 
     provider_names = configurator.get_all_configured_providers()
@@ -111,13 +121,16 @@ def set_default_provider(configurator: ConfigManager):
     configurator.set_default_provider(selected_name)
 
 
-def add_provider(configurator: ConfigManager):
+def add_provider(configurator: ConfigManager, console: Console):
     """Configure an LLM provider."""
 
     # List of all supported provider names
     provider_names = configurator.get_all_supported_providers()
     if len(provider_names) == 0:
-        print("No supported providers. Tell the developers to add some.")
+        console.print(
+            "No supported providers. Tell the developers to add some.",
+            style="red",
+        )
         return
 
     # Prompt user to select an LLM provider
@@ -130,10 +143,20 @@ def add_provider(configurator: ConfigManager):
     assert provider is not None
 
     # Authenticate with the LLM provider
-    provider.authenticate()
+    if not provider.authenticate(console):
+        sys.exit(1)
 
     # Select a model from the provider
-    models = provider.get_models()
+    try:
+        models = provider.get_models()
+    except FetchModelsError as e:
+        logger.debug(f"Error while fetching models: {e}")
+        console.print(
+            "An error occured while fetching available models for this provider.",
+            style="red",
+        )
+        sys.exit(1)
+
     selected_model = questionary.select("Select a model:", choices=models).ask()
 
     # Write provider to config file
@@ -232,27 +255,27 @@ def main():
 
     # List all supported LLM providers
     if args.list_supported_providers:
-        list_supported_providers(configurator)
+        list_supported_providers(configurator, console)
         return
 
     # List users configured LLM providers
     if args.list_configured_providers:
-        list_configured_providers(configurator)
+        list_configured_providers(configurator, console)
         return
 
     # Remove a configured LLM provider
     if args.remove_provider:
-        remove_provider(configurator)
+        remove_provider(configurator, console)
         return
 
     # Set a default provider
     if args.set_default_provider:
-        set_default_provider(configurator)
+        set_default_provider(configurator, console)
         return
 
     # Add an LLM provider
     if args.add_provider:
-        add_provider(configurator)
+        add_provider(configurator, console)
         return
 
     # No prompt
@@ -290,7 +313,7 @@ def main():
     logger.debug(f"Using provider class: {provider.__name__}")
 
     # Authenticate with the LLM provider
-    provider.authenticate()
+    provider.authenticate(console)
 
     # Get model
     model: str | None = None
@@ -303,7 +326,8 @@ def main():
         except ConfigError as e:
             logger.debug(e)
             console.print(
-                "[red]An error occurred while selecting a model. Run how with the --debug flag for more info.[/red]"
+                "An error occurred while selecting a model. Run how with the --debug flag for more info.",
+                style="red",
             )
             sys.exit(1)
     assert model is not None
@@ -315,12 +339,14 @@ def main():
         shell=shell,
         prompt=args.prompt,
     )
+    logger.debug(f"Prompt: {prompt_with_context}")
 
     # Get commands from the AI
     try:
         with console.status("[bold green]Working...[/bold green]", spinner="dots"):
             response = provider.generate_commands(prompt_with_context, model)
-    except Exception:  # noqa: BLE001
+    except GenerateCommandsError as e:
+        logger.debug(f"Error while generating commands: {e}")
         console.print("[red]An error occurred while generating commands.[/red]")
         sys.exit(1)
 

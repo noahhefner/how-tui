@@ -46,29 +46,23 @@ class GroqProvider(LLMProvider):
         return CommandResponse.model_validate(result)
 
     @staticmethod
-    def authenticate(force: bool = False) -> None:
+    def authenticate(console: Console, force: bool = False) -> bool:
 
         api_key = keyring.get_password("how-tui", "Groq")
 
         if force or api_key is None:
-            console = Console()
-
             api_key = getpass("Groq API key: ")
 
             if not api_key:
                 console.print("[red]API key cannot be empty.[/red]")
-                sys.exit(1)
+                return False
 
             keyring.set_password("how-tui", "Groq", api_key)
 
+        return True
+
     @staticmethod
     def unauthenticate() -> None:
-
-        api_key = keyring.get_password("how-tui", "Groq")
-
-        if api_key is None:
-            print("No API key found for Groq.")
-            return
 
         keyring.delete_password("how-tui", "Groq")
 

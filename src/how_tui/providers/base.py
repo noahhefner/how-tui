@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 
+from rich.console import Console
+
 from how_tui.models.command import CommandResponse
 
 
@@ -43,9 +45,13 @@ class LLMProvider(ABC):
 
     @staticmethod
     @abstractmethod
-    def authenticate(force: bool = False) -> None: ...
+    def authenticate(console: Console, force: bool = False) -> bool: ...
 
-    """Authenticate the user with the LLM provider."""
+    """Authenticate the user with the LLM provider.
+    
+    Returns:
+        bool: True for successful authentication, False otherwise.
+    """
 
     @staticmethod
     @abstractmethod
