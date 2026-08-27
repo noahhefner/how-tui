@@ -1,9 +1,5 @@
 """
-Test cases where the configuration file:
-
-    1. Exists AND
-    2. Is formatted properly AND
-    3. Contains a single LLM provider
+Test cases where the configuration file is configured properly.
 """
 
 import shutil

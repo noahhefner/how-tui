@@ -9,6 +9,7 @@ from how_tui.providers.base import LLMProvider
 
 logger = logging.getLogger(__name__)
 
+
 class ConfigError(Exception):
     """Exception raised when an invalid state in the config file is detected."""
 
@@ -28,15 +29,13 @@ class ConfigManager:
         This init function checks for an existing configuration file and loads
         the data from it if one is found.
 
-        If there is no configuration file, an empty one is created.
-
         Raises:
-            ConfigError: If the config file is malformed.
+            ConfigError: If there is no config file, or if the config file is
+                malformed.
         """
 
         self.provider_index = provider_index
-        self.config = ConfigFile()  # In-memory config file data
-        
+
         config_file: Path | None = None
         if config_file_path is not None:
             # User-specified config file
@@ -51,8 +50,8 @@ class ConfigManager:
             config_dir.mkdir(parents=True, exist_ok=True)
             config_file = config_dir / "config.json"
             if not config_file.exists():
-                logger.debug("Config file does not exist. Creating one now...")
-                config_file.write_text(self.config.model_dump_json(indent=2))
+                logger.debug("Config file does not exist.")
+                raise ConfigError("Config file does not exist.")
             if not config_file.is_file():
                 raise ConfigError("Config file is not a file.")
         assert config_file is not None

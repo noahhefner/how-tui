@@ -6,9 +6,9 @@ from pydantic import BaseModel, Field
 
 
 class ConfigFile(BaseModel):
-    default_provider: str | None = None
+    default_provider: str | None = Field(...)
     # Key: Provider Name, Value: Provider Details
-    providers: dict[str, ProviderConfig] = Field(default_factory=dict)
+    providers: dict[str, ProviderConfig] = Field(...)
 
 
 class ProviderConfig(BaseModel):

@@ -8,10 +8,12 @@ A terminal command assistant that uses LLMs to generate shell commands from natu
 - OS and shell aware — generates commands specific to your environment
 - Pluggable LLM provider system — easily add new providers
 - Authentication credentials stored securely in your OS keyring
-- Structured output via Pydantic for reliable command parsing
 - Selectable models for configured LLM providers
 
 ## Installation
+
+> ![IMPORTANT]
+> Headless environments may require a third party keyring backend. See keyring documentation [here](https://github.com/jaraco/keyring#third-party-backends).
 
 Install `how-tui` with `uv`:
 
@@ -72,7 +74,6 @@ how "rename multiple files at once"
 ## TODO List
 
 - Shell-aware syntax highlighting in the displayed commands.
-- Add a comprehensive test suite covering CLI behavior, provider integration, config management, and command parsing.
 - Add support for more LLM providers.
 - Display a short explanation alongside each suggested command.
 
