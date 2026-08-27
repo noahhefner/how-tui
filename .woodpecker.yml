@@ -1,0 +1,33 @@
+when:
+  - event: manual
+
+steps:
+  - name: build-and-publish
+    image: ghcr.io/astral-sh/uv:python3.14-trixie
+
+    environment:
+      UV_PUBLISH_TOKEN:
+        from_secret: pypi_token
+
+    commands:
+      - |
+        set -eu
+
+        # Use double $$ so bash evaluates it at runtime, not Woodpecker's YAML pre-processor
+        echo "RELEASE_TAG=$${RELEASE_TAG:-<not set>}"
+
+        if [ -z "$${RELEASE_TAG:-}" ]; then
+          echo "ERROR: RELEASE_TAG must be specified."
+          exit 1
+        fi
+
+        TAG="$${RELEASE_TAG}"
+        VERSION="$${TAG#v}"
+
+        echo "Git tag: $${TAG}"
+        echo "Package version: $${VERSION}"
+
+        export PACKAGE_VERSION="$${VERSION}"
+
+        uv build
+        uv publish

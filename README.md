@@ -12,7 +12,7 @@ A terminal command assistant that uses LLMs to generate shell commands from natu
 
 ## Installation
 
-> ![IMPORTANT]
+> [!IMPORTANT]
 > Headless environments may require a third party keyring backend. See keyring documentation [here](https://github.com/jaraco/keyring#third-party-backends).
 
 Install `how-tui` with `uv`:
@@ -28,7 +28,7 @@ uv tool install how-tui
 
 ## Usage
 
-```sh
+```plaintext
 $ how
 usage: how [-h] [--list-supported-providers] [--list-configured-providers] [--add-provider]
            [--remove-provider] [--set-default-provider] [--set-model] [--debug] [--provider PROVIDER]
@@ -70,12 +70,6 @@ how "find all files larger than 100MB"
 how "list all running docker containers"
 how "rename multiple files at once"
 ```
-
-## TODO List
-
-- Shell-aware syntax highlighting in the displayed commands.
-- Add support for more LLM providers.
-- Display a short explanation alongside each suggested command.
 
 ## Supported Providers
 
