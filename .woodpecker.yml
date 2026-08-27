@@ -1,6 +1,5 @@
 when:
   - event: tag
-    branch: main
 
 steps:
   - name: build-and-publish
@@ -12,15 +11,9 @@ steps:
 
     commands:
       - |
-        TAG="$(git describe --exact-match --tags HEAD 2>/dev/null || true)"
+        set -eu
 
-
-        if [ -z "$TAG" ]; then
-          echo "ERROR: HEAD is not tagged."
-          echo "A Git tag is required to publish to PyPI."
-          exit 1
-        fi
-
+        TAG="${CI_COMMIT_TAG}"
         VERSION="${TAG#v}"
 
         echo "Git tag: ${TAG}"
@@ -28,7 +21,6 @@ steps:
 
         export PACKAGE_VERSION="${VERSION}"
 
-      - uv build
-
-      - uvx twine check dist/*
-      - uvx twine upload dist/*
+        uv build
+        uvx twine check dist/*
+        uvx twine upload dist/*
