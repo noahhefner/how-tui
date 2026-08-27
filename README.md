@@ -71,12 +71,6 @@ how "list all running docker containers"
 how "rename multiple files at once"
 ```
 
-## TODO List
-
-- Shell-aware syntax highlighting in the displayed commands.
-- Add support for more LLM providers.
-- Display a short explanation alongside each suggested command.
-
 ## Supported Providers
 
 | Provider | Status |
