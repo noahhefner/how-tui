@@ -7,10 +7,8 @@ steps:
     image: ghcr.io/astral-sh/uv:python3.14-trixie
 
     environment:
-      PYPI_USERNAME:
-        from_secret: pypi_username
-      PYPI_PASSWORD:
-        from_secret: pypi_password
+      UV_PUBLISH_TOKEN:
+        from_secret: pypi_token
 
     commands:
       - |
