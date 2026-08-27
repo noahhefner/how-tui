@@ -2,13 +2,13 @@
 Expected layout of the configuration file.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ConfigFile(BaseModel):
-    default_provider: str | None = None
+    default_provider: str | None = Field(...)
     # Key: Provider Name, Value: Provider Details
-    providers: dict[str, ProviderConfig] | None = None
+    providers: dict[str, ProviderConfig] = Field(...)
 
 
 class ProviderConfig(BaseModel):

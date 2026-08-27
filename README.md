@@ -8,10 +8,12 @@ A terminal command assistant that uses LLMs to generate shell commands from natu
 - OS and shell aware — generates commands specific to your environment
 - Pluggable LLM provider system — easily add new providers
 - Authentication credentials stored securely in your OS keyring
-- Structured output via Pydantic for reliable command parsing
 - Selectable models for configured LLM providers
 
 ## Installation
+
+> ![IMPORTANT]
+> Headless environments may require a third party keyring backend. See keyring documentation [here](https://github.com/jaraco/keyring#third-party-backends).
 
 Install `how-tui` with `uv`:
 
@@ -29,7 +31,8 @@ uv tool install how-tui
 ```sh
 $ how
 usage: how [-h] [--list-supported-providers] [--list-configured-providers] [--add-provider]
-           [--remove-provider] [--set-default-provider]
+           [--remove-provider] [--set-default-provider] [--set-model] [--debug] [--provider PROVIDER]
+           [--model MODEL]
            [prompt]
 
 positional arguments:
@@ -44,7 +47,11 @@ options:
   --add-provider        Setup an LLM provider
   --remove-provider     Remove an LLM provider
   --set-default-provider
-                        Remove an LLM provider
+                        Set a default LLM provider
+  --set-model           Set a default model for a provider
+  --debug               Enable debug level logging
+  --provider PROVIDER   Specify an LLM provider
+  --model MODEL         Specify a model
 ```
 
 ### First-Time Setup
@@ -64,12 +71,11 @@ how "list all running docker containers"
 how "rename multiple files at once"
 ```
 
-## Roadmap
+## TODO List
 
-1. **Logs** — Add configurable logging for debugging provider interactions, request/response payloads, and errors.
-2. **Tests** — Add a comprehensive test suite covering CLI behavior, provider integration, config management, and command parsing.
-3. **Descriptions for each command** — Display a short explanation alongside each suggested command so users understand what it does before selecting.
-4. **More LLM Providers** - Add support for more LLM providers.
+- Shell-aware syntax highlighting in the displayed commands.
+- Add support for more LLM providers.
+- Display a short explanation alongside each suggested command.
 
 ## Supported Providers
 
@@ -80,14 +86,9 @@ how "rename multiple files at once"
 
 ### Adding a New LLM Provider
 
-Drop a new Python file in `src/how_tui/providers/` with a class that subclasses `LLMProvider`:
+Create a new Python file in `src/how_tui/providers/` with a class that subclasses `LLMProvider`:
 
 ```python
-from abc import ABC, abstractmethod
-
-from how_tui.models.command import CommandResponse
-
-
 class LLMProvider(ABC):
     @staticmethod
     @abstractmethod
@@ -96,18 +97,44 @@ class LLMProvider(ABC):
         model: str,
     ) -> CommandResponse: ...
 
+    """Send request to the LLM to generate commands based on the user question.
+
+    Returns:
+        CommandResponse: List of commands.
+
+    Raises:
+        GenerateCommandsError: When an issue occurs while generating commands.
+    """
+
     @staticmethod
     @abstractmethod
-    def authenticate(force: bool = False) -> None: ...
+    def authenticate(console: Console, force: bool = False) -> bool: ...
+
+    """Authenticate the user with the LLM provider.
+    
+    Returns:
+        bool: True for successful authentication, False otherwise.
+    """
 
     @staticmethod
     @abstractmethod
     def unauthenticate() -> None: ...
 
+    """Remove authentication for the LLM provider (ex. delete API key)."""
+
     @staticmethod
     @abstractmethod
     def get_models() -> list[str]: ...
 
+    """
+    Retrieve a list of models supported by the LLM provider.
+    
+    Returns: 
+        list[str]: A list of models supported by the LLM provider.
+
+    Raises:
+        FetchModelsError: When an error occurs while fetching models.
+    """
 ```
 
 ## License

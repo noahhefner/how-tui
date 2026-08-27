@@ -40,45 +40,34 @@ class GroqProvider(LLMProvider):
 
         result = json.loads(response.choices[0].message.content or "{}")
         if not result:
-            print("An error occurred.")
+            print("Empty result from Groq provider.")
             sys.exit(1)
 
         return CommandResponse.model_validate(result)
 
     @staticmethod
-    def authenticate(force: bool = False) -> None:
+    def authenticate(console: Console, force: bool = False) -> bool:
 
         api_key = keyring.get_password("how-tui", "Groq")
 
         if force or api_key is None:
-            console = Console()
-
             api_key = getpass("Groq API key: ")
 
             if not api_key:
                 console.print("[red]API key cannot be empty.[/red]")
-                sys.exit(1)
+                return False
 
             keyring.set_password("how-tui", "Groq", api_key)
 
+        return True
+
     @staticmethod
     def unauthenticate() -> None:
-        """Clear local credentials."""
-
-        api_key = keyring.get_password("how-tui", "Groq")
-
-        if api_key is None:
-            print("No API key found for Groq.")
-            return
 
         keyring.delete_password("how-tui", "Groq")
 
     @staticmethod
     def get_models() -> list[str]:
-        """Get all Groq models via the API.
-
-        Requires authentication to list models.
-        """
 
         client = GroqProvider._get_client()
         models: ModelListResponse = client.models.list()
@@ -87,11 +76,6 @@ class GroqProvider(LLMProvider):
 
     @staticmethod
     def _get_client() -> Groq:
-        """Create and return a Groq client.
-
-        Assumptions:
-            - User is authenticated.
-        """
 
         api_key = keyring.get_password("how-tui", "Groq")
         if api_key is None:
