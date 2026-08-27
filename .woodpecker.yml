@@ -1,0 +1,36 @@
+when:
+  - event: push
+    branch: main
+
+steps:
+  - name: build-and-publish
+    image: ghcr.io/astral-sh/uv:python3.14-trixie
+
+    environment:
+      PYPI_USERNAME:
+        from_secret: pypi_username
+      PYPI_PASSWORD:
+        from_secret: pypi_password
+
+    commands:
+      - |
+        TAG="$(git describe --exact-match --tags HEAD 2>/dev/null || true)"
+
+
+        if [ -z "$TAG" ]; then
+          echo "ERROR: HEAD is not tagged."
+          echo "A Git tag is required to publish to PyPI."
+          exit 1
+        fi
+
+        VERSION="${TAG#v}"
+
+        echo "Git tag: ${TAG}"
+        echo "Package version: ${VERSION}"
+
+        export PACKAGE_VERSION="${VERSION}"
+
+      - uv build
+
+      - uvx twine check dist/*
+      - uvx twine upload dist/*
