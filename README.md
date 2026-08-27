@@ -12,7 +12,7 @@ A terminal command assistant that uses LLMs to generate shell commands from natu
 
 ## Installation
 
-> ![IMPORTANT]
+> [!IMPORTANT]
 > Headless environments may require a third party keyring backend. See keyring documentation [here](https://github.com/jaraco/keyring#third-party-backends).
 
 Install `how-tui` with `uv`:
