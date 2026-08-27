@@ -28,7 +28,7 @@ uv tool install how-tui
 
 ## Usage
 
-```sh
+```plaintext
 $ how
 usage: how [-h] [--list-supported-providers] [--list-configured-providers] [--add-provider]
            [--remove-provider] [--set-default-provider] [--set-model] [--debug] [--provider PROVIDER]
