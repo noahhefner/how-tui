@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "Noah Hefner", email = "nhefner127+github@protonmail.com" }
 ]
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 dependencies = [
     "google-genai>=2.20.0",
     "groq>=1.7.0",
