@@ -10,11 +10,6 @@ A terminal command assistant that uses LLMs to generate shell commands from natu
 - Authentication credentials stored securely in your OS keyring
 - Selectable models for configured LLM providers
 
-### Requirements
-
-- Python >= 3.14
-- An API key for a supported LLM provider
-
 ## Installation
 
 Install `how-tui` with `uv`:
@@ -23,8 +18,12 @@ Install `how-tui` with `uv`:
 uv tool install how-tui
 ```
 
-> [!IMPORTANT]
-> Headless environments may require a third party keyring backend. See keyring documentation [here](https://github.com/jaraco/keyring#third-party-backends).
+**Headless environments may require a third party keyring backend. See keyring documentation [here](https://github.com/jaraco/keyring#third-party-backends).**
+
+### Requirements
+
+- Python >= 3.14
+- An API key for a supported LLM provider
 
 ## Usage
 
@@ -129,14 +128,6 @@ class LLMProvider(ABC):
     Raises:
         FetchModelsError: When an error occurs while fetching models.
     """
-```
-
-## Upgrading
-
-To upgrade `how-tui` to the latest version:
-
-```sh
-uv tool upgrade how-tui
 ```
 
 ## Development

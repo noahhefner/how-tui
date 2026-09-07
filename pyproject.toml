@@ -2,7 +2,7 @@
 name = "how-tui"
 version = "1.0.2"
 description = "Terminal command assistant"
-readme = "README.md"
+readme = "PYPI.md"
 authors = [
     { name = "Noah Hefner", email = "nhefner127+github@protonmail.com" }
 ]
