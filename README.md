@@ -131,6 +131,20 @@ class LLMProvider(ABC):
     """
 ```
 
+## Development
+
+This project is managed with [uv](https://docs.astral.sh/uv/). To download Python dependencies and create a virtual environment:
+
+```sh
+uv sync
+```
+
+Run `how-tui`:
+
+```sh
+uv run how-tui "Prompt here"
+```
+
 ## License
 
 MIT

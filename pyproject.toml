@@ -1,6 +1,6 @@
 [project]
 name = "how-tui"
-dynamic = ["version"]
+version = "1.0.2"
 description = "Terminal command assistant"
 readme = "README.md"
 authors = [
@@ -8,34 +8,31 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
-    "google-genai>=2.20.0",
+    "google-genai>=2.22.0",
     "groq>=1.7.0",
     "keyring>=25.7.0",
-    "platformdirs>=4.11.4",
-    "pydantic>=2.13.4",
+    "platformdirs>=4.11.7",
+    "pydantic>=2.13.5",
     "questionary>=2.1.1",
     "rich>=15.0.0",
 ]
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[project.scripts]
-how = "how_tui.cli:main"
-
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
-    "ruff>=0.16.4",
-    "ty>=0.0.75",
+    "ruff>=0.16.6",
+    "ty>=0.0.78",
+    "uv-upsync>=2.4.1",
 ]
+
+[build-system]
+requires = ["uv_build>=0.12.6,<0.13.0"]
+build-backend = "uv_build"
+
+[project.scripts]
+how = "how_tui.cli:main"
 
 [tool.pytest.ini_options]
 filterwarnings = [
     "ignore::DeprecationWarning:google.genai",
 ]
-
-[tool.hatch.version]
-source = "env"
-variable = "PACKAGE_VERSION"
