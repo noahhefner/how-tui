@@ -61,8 +61,11 @@ class ConfigManager:
             self.config = ConfigFile.model_validate_json(config_file.read_text())
         except ValidationError as e:
             raise ConfigError(
-                f"Validation error occurred while reading config file: {e}"
-            )
+                "Validation error occurred while reading config file."
+            ) from e
+
+        # Validate the config file (may raise ConfigError)
+        self._validate_config_file(self.config, provider_index)
 
         # Save reference to config file
         self.config_file = config_file
@@ -176,42 +179,58 @@ class ConfigManager:
         )
 
     def get_default_provider_class(self) -> type[LLMProvider] | None:
-        """Get the default provider class.
-
-        Raises:
-            ConfigError: If the default provider does not match any configured
-                provider name.
-        """
+        """Get the default provider class."""
 
         if self.config.default_provider is None:
             return None
 
         default_provider_class = self.provider_index[self.config.default_provider]
-        if default_provider_class is None:
-            raise ConfigError(
-                "Default provider does not match any configured provider name."
-            )
+        assert default_provider_class is not None
 
         return default_provider_class
 
     def get_default_provider_model(self) -> str | None:
-        """Get the model for the default provider.
-
-        Raises:
-            ConfigError: If the default provider does not match any configured
-                provider name.
-        """
+        """Get the model for the default provider."""
 
         if self.config.default_provider is None:
             return None
 
         default_provider = self.config.providers[self.config.default_provider]
-        if default_provider is None:
+        assert default_provider is not None
+
+        return default_provider.model
+
+    def _validate_config_file(
+        self, config: ConfigFile, provider_index: dict[str, type[LLMProvider]]
+    ):
+        """Ensures the config file is functionally correct.
+
+        This function does NOT check that the JSON is valid or that the shape of
+        the data is correct. Those checks are handled by Pydantic.
+
+        The following checks are performed by this function:
+
+          - Default provider is in the list of configured providers.
+          - All providers in the config are in the provider index.
+
+        Raises:
+            ConfigError: If any of the above checks fail.
+        """
+
+        if config.default_provider is None:
+            return
+
+        default_provider_class = provider_index[config.default_provider]
+        if default_provider_class is None:
             raise ConfigError(
                 "Default provider does not match any configured provider name."
             )
 
-        return default_provider.model
+        for provider in config.providers:
+            if provider_index[provider] is None:
+                raise ConfigError(
+                    f"Invalid provider detected in config file: {provider}"
+                )
 
     def _write_config(self):
         """Write in-memory config to config file on disk."""

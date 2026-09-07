@@ -150,7 +150,7 @@ uv sync
 Run `how-tui`:
 
 ```sh
-uv run how-tui "Prompt here"
+uv run how "Prompt here"
 ```
 
 ## License

@@ -347,16 +347,9 @@ def main():
             sys.exit(1)
         provider = configurator.get_provider_by_name(user_specified_provider)
     else:
-        try:
-            provider = configurator.get_default_provider_class()
-        except ConfigError as e:
-            logger.debug(e)
-            console.print(
-                "[red]An error occurred while selecting the LLM provider. Run how with the --debug flag for more info.[/red]"
-            )
-            sys.exit(1)
-
+        provider = configurator.get_default_provider_class()
     assert provider is not None
+
     logger.debug(f"Using provider class: {provider.__name__}")
 
     # Authenticate with the LLM provider
@@ -368,15 +361,8 @@ def main():
     if user_specified_model is not None:
         model = user_specified_model
     else:
-        try:
-            model = configurator.get_default_provider_model()
-        except ConfigError as e:
-            logger.debug(e)
-            console.print(
-                "An error occurred while selecting a model. Run how with the --debug flag for more info.",
-                style="red",
-            )
-            sys.exit(1)
+        model = configurator.get_default_provider_model()
+
     assert model is not None
     logger.debug(f"Using model: {model}")
 
