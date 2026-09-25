@@ -1,6 +1,6 @@
 [project]
 name = "how-tui"
-version = "1.0.2"
+version = "1.0.3"
 description = "Terminal command assistant"
 readme = "PYPI.md"
 authors = [
