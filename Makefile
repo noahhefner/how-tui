@@ -9,7 +9,7 @@ format-check:
 	uv run ruff format --check ./src
 
 typecheck:
-	uv run ty check ./src
+	uv run pyrefly check ./src
 
 test:
 	uv run pytest
@@ -22,7 +22,7 @@ check:
 	uv run ruff format --check $(PYTHON_SRC)
 
 	@printf '\n=== Type Checking ===\n'
-	uv run ty check $(PYTHON_SRC)
+	uv run pyrefly check $(PYTHON_SRC)
 
 	@printf '\n✓ All checks passed!\n'
 
